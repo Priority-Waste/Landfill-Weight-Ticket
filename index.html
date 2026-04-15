@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Priority Waste — Landfill Ticket</title>
+<style>
+  :root {
+    --pw-yellow: #FFD200;
+    --pw-yellow-dark: #E6BD00;
+    --pw-black: #111111;
+    --pw-charcoal: #2A2A2A;
+    --pw-gray: #6B6B6B;
+    --pw-light: #F4F4F4;
+    --pw-border: #D4D4D4;
+    --pw-success: #1B8E3A;
+    --pw-error: #C9302C;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--pw-light);
+    color: var(--pw-black);
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Header */
+  header {
+    background: var(--pw-black);
+    border-bottom: 4px solid var(--pw-yellow);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .brand-logo {
+    height: 48px;
+    width: auto;
+    display: block;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-text .sub { font-weight: 700; font-size: 12px; color: var(--pw-yellow); text-transform: uppercase; letter-spacing: 1px; }
+  .status {
+    font-size: 13px; font-weight: 700; text-transform: uppercase;
+    background: var(--pw-yellow); color: var(--pw-black);
+    padding: 8px 14px; border-radius: 999px;
+  }
+  .status.offline { background: var(--pw-error); color: white; }
+
+  /* Main */
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 20px 120px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 8px 0 4px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    color: var(--pw-gray);
+    font-size: 15px;
+    margin: 0 0 24px;
+  }
+
+  /* Form */
+  form { display: flex; flex-direction: column; gap: 18px; }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  label {
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--pw-charcoal);
+  }
+  label .req { color: var(--pw-error); margin-left: 4px; }
+
+  input, select {
+    font-family: inherit;
+    font-size: 20px;
+    font-weight: 600;
+    padding: 18px 16px;
+    border: 2px solid var(--pw-border);
+    border-radius: 10px;
+    background: white;
+    color: var(--pw-black);
+    width: 100%;
+    min-height: 60px;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--pw-black);
+    box-shadow: 0 0 0 4px var(--pw-yellow);
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M5 8l5 5 5-5' stroke='%23111' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 18px center;
+    padding-right: 50px;
+  }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+
+  .weight-wrap { position: relative; }
+  .weight-wrap input { padding-right: 70px; font-size: 28px; font-weight: 800; }
+  .weight-unit {
+    position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+    font-weight: 800; color: var(--pw-gray); font-size: 16px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    pointer-events: none;
+  }
+
+  .datetime-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: white;
+    border: 2px solid var(--pw-border);
+    border-radius: 10px;
+    font-size: 16px; font-weight: 600;
+  }
+  .datetime-row .live { color: var(--pw-gray); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .datetime-row .val { font-size: 18px; font-weight: 800; }
+
+  /* Submit */
+  .actions {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: white;
+    border-top: 2px solid var(--pw-border);
+    padding: 16px 20px;
+    display: flex; gap: 12px;
+    z-index: 10;
+  }
+  button {
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    border-radius: 10px;
+    padding: 20px;
+    cursor: pointer;
+    min-height: 64px;
+    transition: transform 0.05s, background 0.15s;
+  }
+  button:active { transform: scale(0.98); }
+  .btn-clear {
+    background: white;
+    color: var(--pw-charcoal);
+    border: 2px solid var(--pw-border);
+    flex: 0 0 30%;
+  }
+  .btn-submit {
+    background: var(--pw-yellow);
+    color: var(--pw-black);
+    border: 2px solid var(--pw-black);
+    flex: 1;
+    box-shadow: 0 4px 0 var(--pw-black);
+  }
+  .btn-submit:active { box-shadow: 0 1px 0 var(--pw-black); transform: translateY(3px); }
+  .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Success Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 200;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+  }
+  .modal-backdrop.show { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn {
+    0% { transform: scale(0.7); opacity: 0; }
+    60% { transform: scale(1.05); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @keyframes checkDraw {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+  .modal {
+    background: white;
+    border: 4px solid var(--pw-black);
+    border-radius: 16px;
+    padding: 32px 28px;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .modal-icon {
+    width: 100px; height: 100px;
+    background: var(--pw-success);
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    display: grid; place-items: center;
+  }
+  .modal-icon svg { width: 56px; height: 56px; }
+  .modal-icon path {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: checkDraw 0.5s 0.3s ease forwards;
+  }
+  .modal h2 {
+    font-size: 28px;
+    font-weight: 900;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+  }
+  .modal .ticket-summary {
+    background: var(--pw-light);
+    border-radius: 10px;
+    padding: 16px;
+    margin: 20px 0;
+    text-align: left;
+  }
+  .modal .ticket-summary .row-item {
+    display: flex; justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--pw-border);
+    font-size: 15px;
+  }
+  .modal .ticket-summary .row-item:last-child { border-bottom: none; }
+  .modal .ticket-summary .label { color: var(--pw-gray); font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+  .modal .ticket-summary .value { font-weight: 800; color: var(--pw-black); }
+  .modal .ticket-summary .weight-big { font-size: 22px; }
+  .modal-status {
+    font-size: 14px;
+    color: var(--pw-gray);
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+  .modal-status.queued { color: #B07B00; }
+  .modal button {
+    width: 100%;
+    background: var(--pw-yellow);
+    color: var(--pw-black);
+    border: 2px solid var(--pw-black);
+    box-shadow: 0 4px 0 var(--pw-black);
+    font-size: 18px;
+  }
+  .modal button:active { box-shadow: 0 1px 0 var(--pw-black); transform: translateY(3px); }
+    position: fixed; top: 90px; left: 50%; transform: translateX(-50%) translateY(-150%);
+    background: var(--pw-success); color: white;
+    padding: 16px 24px; border-radius: 10px;
+    font-weight: 700; font-size: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+    z-index: 100;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.error { background: var(--pw-error); }
+
+  /* Queue badge */
+  .queue-info {
+    margin-top: 24px;
+    padding: 14px 16px;
+    background: white;
+    border: 2px dashed var(--pw-border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--pw-gray);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .queue-info strong { color: var(--pw-black); font-size: 18px; }
+  .queue-info button {
+    font-size: 13px; padding: 10px 14px; min-height: auto;
+    background: var(--pw-charcoal); color: white;
+  }
+
+  /* Settings */
+  details {
+    margin-top: 16px;
+    background: white;
+    border: 2px solid var(--pw-border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  summary { cursor: pointer; font-weight: 700; font-size: 14px; color: var(--pw-charcoal); text-transform: uppercase; letter-spacing: 0.5px; }
+  details input { font-size: 14px; padding: 10px 12px; min-height: auto; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="priority-logo.png" alt="Priority Waste" class="brand-logo" />
+    <div class="brand-text">
+      <span class="sub">Landfill Ticket Entry</span>
+    </div>
+  </div>
+  <div class="status" id="status">Online</div>
+</header>
+
+<main>
+  <h1>New Landfill Ticket</h1>
+  <p class="subtitle">Complete each field, then tap Submit Ticket.</p>
+
+  <form id="ticketForm" autocomplete="off">
+    <div class="field">
+      <label for="driver">Driver Name <span class="req">*</span></label>
+      <input type="text" id="driver" name="driver" required placeholder="e.g. John Smith" />
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="truck">Truck # <span class="req">*</span></label>
+        <input type="text" id="truck" name="truck" required inputmode="numeric" placeholder="e.g. 142" />
+      </div>
+      <div class="field">
+        <label for="landfill">Landfill <span class="req">*</span></label>
+        <select id="landfill" name="landfill" required>
+          <option value="">Select…</option>
+          <option>Pine Tree Acres</option>
+          <option>Eagle Valley</option>
+          <option>Arbor Hills</option>
+          <option>Riverview</option>
+          <option>Brent Run</option>
+          <option>Carleton Farms</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="weight">Weight <span class="req">*</span></label>
+      <div class="weight-wrap">
+        <input type="number" id="weight" name="weight" required inputmode="decimal" step="0.01" min="0" placeholder="0.00" />
+        <span class="weight-unit">TONS</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Date / Time</label>
+      <div class="datetime-row">
+        <span class="live">Captured at submission</span>
+        <span class="val" id="liveClock">—</span>
+      </div>
+    </div>
+
+    <div class="queue-info" id="queueInfo" style="display:none;">
+      <span>Pending submissions: <strong id="queueCount">0</strong></span>
+      <button type="button" id="retryBtn">Retry Now</button>
+    </div>
+
+    <details>
+      <summary>⚙ Webhook Settings (one-time setup)</summary>
+      <input type="url" id="webhookUrl" placeholder="https://hooks.zapier.com/... or Power Automate URL" />
+    </details>
+  </form>
+</main>
+
+<div class="actions">
+  <button type="button" class="btn-clear" id="clearBtn">Clear</button>
+  <button type="submit" class="btn-submit" id="submitBtn" form="ticketForm">Submit Ticket</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-backdrop" id="successModal">
+  <div class="modal">
+    <div class="modal-icon">
+      <svg viewBox="0 0 60 60" fill="none">
+        <path d="M15 30 L26 41 L45 20" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h2 id="modalTitle">Ticket Submitted</h2>
+    <div class="modal-status" id="modalStatus">Successfully sent to dispatch</div>
+    <div class="ticket-summary" id="ticketSummary"></div>
+    <button type="button" id="modalClose">New Ticket</button>
+  </div>
+</div>
+
+<script>
+  // ---------- Live clock ----------
+  function updateClock() {
+    const now = new Date();
+    const opts = { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+    document.getElementById('liveClock').textContent = now.toLocaleString('en-US', opts);
+  }
+  updateClock();
+  setInterval(updateClock, 1000 * 30);
+
+  // ---------- Online/offline ----------
+  function updateStatus() {
+    const el = document.getElementById('status');
+    if (navigator.onLine) {
+      el.textContent = 'Online';
+      el.classList.remove('offline');
+    } else {
+      el.textContent = 'Offline';
+      el.classList.add('offline');
+    }
+  }
+  window.addEventListener('online', () => { updateStatus(); flushQueue(); });
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+
+  // ---------- Webhook URL persistence ----------
+  // Note: localStorage is used for offline queue + webhook config.
+  // If running in a sandboxed iframe that blocks it, the form still works
+  // but submissions won't persist if the network call fails.
+  let storage;
+  try {
+    storage = window.localStorage;
+    storage.setItem('__test', '1');
+    storage.removeItem('__test');
+  } catch (e) {
+    storage = null;
+    console.warn('localStorage unavailable; offline queue disabled.');
+  }
+
+  const webhookInput = document.getElementById('webhookUrl');
+  if (storage) {
+    webhookInput.value = storage.getItem('pw_webhook_url') || '';
+    webhookInput.addEventListener('change', () => {
+      storage.setItem('pw_webhook_url', webhookInput.value.trim());
+      showToast('Webhook URL saved', false);
+    });
+  }
+
+  // ---------- Queue ----------
+  function getQueue() {
+    if (!storage) return [];
+    try { return JSON.parse(storage.getItem('pw_queue') || '[]'); }
+    catch { return []; }
+  }
+  function setQueue(q) {
+    if (!storage) return;
+    storage.setItem('pw_queue', JSON.stringify(q));
+    renderQueue();
+  }
+  function renderQueue() {
+    const q = getQueue();
+    const info = document.getElementById('queueInfo');
+    const count = document.getElementById('queueCount');
+    if (q.length > 0) {
+      info.style.display = 'flex';
+      count.textContent = q.length;
+    } else {
+      info.style.display = 'none';
+    }
+  }
+  renderQueue();
+
+  document.getElementById('retryBtn').addEventListener('click', flushQueue);
+
+  async function flushQueue() {
+    const q = getQueue();
+    if (q.length === 0) return;
+    const url = (storage && storage.getItem('pw_webhook_url')) || '';
+    if (!url) { showToast('Set webhook URL first', true); return; }
+
+    const remaining = [];
+    for (const ticket of q) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ticket)
+        });
+        if (!res.ok) remaining.push(ticket);
+      } catch {
+        remaining.push(ticket);
+      }
+    }
+    setQueue(remaining);
+    if (remaining.length === 0) {
+      showToast('All pending tickets submitted', false);
+    } else {
+      showToast(`${q.length - remaining.length} sent, ${remaining.length} still pending`, true);
+    }
+  }
+
+  // ---------- Toast ----------
+  function showToast(msg, isError) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.toggle('error', !!isError);
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ---------- Anti-spam guards ----------
+  const MIN_SECONDS_BETWEEN = 10;     // can't submit faster than this
+  const MAX_PER_HOUR = 30;            // hard cap per device per hour
+  const MIN_WEIGHT = 0.1;             // tons
+  const MAX_WEIGHT = 50;              // tons (sanity ceiling)
+  const DUPLICATE_WINDOW_SEC = 120;   // same driver+truck+weight within 2 min = duplicate
+
+  function getSubmitLog() {
+    if (!storage) return [];
+    try { return JSON.parse(storage.getItem('pw_submit_log') || '[]'); }
+    catch { return []; }
+  }
+  function addToLog(entry) {
+    if (!storage) return;
+    const log = getSubmitLog();
+    log.push(entry);
+    // keep only last 24 hours
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const trimmed = log.filter(e => e.t > cutoff);
+    storage.setItem('pw_submit_log', JSON.stringify(trimmed));
+  }
+
+  // ---------- Submit ----------
+  const form = document.getElementById('ticketForm');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Build ticket
+    const ticket = {
+      driver: document.getElementById('driver').value.trim(),
+      truck: document.getElementById('truck').value.trim(),
+      landfill: document.getElementById('landfill').value,
+      weight_tons: parseFloat(document.getElementById('weight').value),
+      submitted_at: new Date().toISOString(),
+      submitted_at_local: new Date().toLocaleString('en-US', { timeZone: 'America/Detroit' }),
+      source: 'Tablet — Landfill Form'
+    };
+
+    // ---- Validation guards ----
+    if (ticket.weight_tons < MIN_WEIGHT || ticket.weight_tons > MAX_WEIGHT) {
+      showToast(`Weight must be between ${MIN_WEIGHT} and ${MAX_WEIGHT} tons`, true);
+      return;
+    }
+
+    const log = getSubmitLog();
+    const now = Date.now();
+
+    // Rate limit: time since last submit
+    const last = log[log.length - 1];
+    if (last && (now - last.t) / 1000 < MIN_SECONDS_BETWEEN) {
+      const wait = Math.ceil(MIN_SECONDS_BETWEEN - (now - last.t) / 1000);
+      showToast(`Please wait ${wait}s before submitting again`, true);
+      return;
+    }
+
+    // Hard cap per hour
+    const lastHour = log.filter(e => now - e.t < 60 * 60 * 1000);
+    if (lastHour.length >= MAX_PER_HOUR) {
+      showToast(`Hourly limit reached (${MAX_PER_HOUR}). Contact dispatch.`, true);
+      return;
+    }
+
+    // Duplicate detection
+    const dupKey = `${ticket.driver}|${ticket.truck}|${ticket.weight_tons}`;
+    const recentDup = log.find(e =>
+      e.key === dupKey && (now - e.t) / 1000 < DUPLICATE_WINDOW_SEC
+    );
+    if (recentDup) {
+      if (!confirm('This looks like a duplicate ticket (same driver, truck, weight in last 2 min). Submit anyway?')) {
+        return;
+      }
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+    addToLog({ t: now, key: dupKey });
+
+    const url = (storage && storage.getItem('pw_webhook_url')) || '';
+
+    let success = false;
+    if (url) {
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(ticket)
+        });
+        success = res.ok;
+      } catch {
+        success = false;
+      }
+    }
+
+    if (success) {
+      showSuccessModal(ticket, true);
+      form.reset();
+    } else {
+      // Queue it
+      const q = getQueue();
+      q.push(ticket);
+      setQueue(q);
+      showSuccessModal(ticket, false, !url);
+      form.reset();
+    }
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Ticket';
+  });
+
+  // ---------- Success Modal ----------
+  function showSuccessModal(ticket, sent, noWebhook) {
+    const modal = document.getElementById('successModal');
+    const title = document.getElementById('modalTitle');
+    const status = document.getElementById('modalStatus');
+    const summary = document.getElementById('ticketSummary');
+
+    if (sent) {
+      title.textContent = 'Ticket Submitted';
+      status.textContent = '✓ Successfully sent to dispatch';
+      status.classList.remove('queued');
+      document.querySelector('.modal-icon').style.background = 'var(--pw-success)';
+    } else {
+      title.textContent = 'Ticket Saved';
+      status.textContent = noWebhook
+        ? '⚠ Saved locally — webhook not configured'
+        : '⚠ No connection — will send automatically when online';
+      status.classList.add('queued');
+      document.querySelector('.modal-icon').style.background = '#B07B00';
+    }
+
+    summary.innerHTML = `
+      <div class="row-item"><span class="label">Driver</span><span class="value">${escapeHtml(ticket.driver)}</span></div>
+      <div class="row-item"><span class="label">Truck #</span><span class="value">${escapeHtml(ticket.truck)}</span></div>
+      <div class="row-item"><span class="label">Landfill</span><span class="value">${escapeHtml(ticket.landfill)}</span></div>
+      <div class="row-item"><span class="label">Weight</span><span class="value weight-big">${ticket.weight_tons} tons</span></div>
+      <div class="row-item"><span class="label">Time</span><span class="value">${escapeHtml(ticket.submitted_at_local)}</span></div>
+    `;
+
+    modal.classList.add('show');
+
+    // Haptic feedback on supported devices
+    if (navigator.vibrate) navigator.vibrate(sent ? [100, 50, 100] : 200);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  document.getElementById('modalClose').addEventListener('click', () => {
+    document.getElementById('successModal').classList.remove('show');
+    document.getElementById('driver').focus();
+  });
+
+  // ---------- Clear ----------
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (confirm('Clear all fields?')) form.reset();
+  });
+
+  // Auto-flush queue every 60s when online
+  setInterval(() => { if (navigator.onLine) flushQueue(); }, 60000);
+</script>
+
+</body>
+</html>
