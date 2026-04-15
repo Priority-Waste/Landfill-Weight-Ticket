@@ -575,12 +575,13 @@
     const remaining = [];
     for (const ticket of q) {
       try {
-        const res = await fetch(url, {
+        await fetch(url, {
           method: 'POST',
+          mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ticket)
         });
-        if (!res.ok) remaining.push(ticket);
+        // no-cors returns opaque response; assume success unless fetch throws
       } catch {
         remaining.push(ticket);
       }
@@ -687,12 +688,16 @@
     let success = false;
     if (url) {
       try {
-        const res = await fetch(url, {
+        // Use no-cors so Zapier/webhook services don't get blocked by browser CORS policy.
+        // Tradeoff: response is opaque (status always 0), so we assume success if no throw.
+        // Real network failures still throw and get caught below.
+        await fetch(url, {
           method: 'POST',
+          mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ticket)
         });
-        success = res.ok;
+        success = true;
       } catch {
         success = false;
       }
