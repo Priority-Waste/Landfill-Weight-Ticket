@@ -412,6 +412,10 @@
         <strong style="color: var(--pw-black);">Pending queue:</strong> <span id="adminQueueCount">0</span> tickets<br>
         <strong style="color: var(--pw-black);">Submissions today:</strong> <span id="adminTodayCount">0</span>
       </div>
+
+      <button type="button" id="adminClearQueue" style="width:100%; margin-top: 12px; background: white; color: var(--pw-error); border: 2px solid var(--pw-error); box-shadow: none; font-size: 14px; padding: 12px;">
+        🗑 Clear Pending Queue
+      </button>
     </div>
 
     <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -436,6 +440,13 @@
 </div>
 
 <script>
+  // ---------- Constants (defined first so they're available everywhere) ----------
+  const MIN_SECONDS_BETWEEN = 10;     // can't submit faster than this
+  const MAX_PER_HOUR = 30;            // hard cap per device per hour
+  const MIN_WEIGHT = 0.1;             // tons
+  const MAX_WEIGHT = 50;              // tons (sanity ceiling)
+  const DUPLICATE_WINDOW_SEC = 120;   // same driver+truck+weight within 2 min = duplicate
+
   // ---------- Live clock ----------
   function updateClock() {
     const now = new Date();
@@ -542,10 +553,37 @@
     if (navigator.onLine) flushQueue();
   });
 
+  document.getElementById('adminClearQueue').addEventListener('click', () => {
+    if (confirm('Clear ALL pending tickets? This cannot be undone.')) {
+      setQueue([]);
+      document.getElementById('adminQueueCount').textContent = '0';
+      showToast('✓ Queue cleared', false);
+    }
+  });
+
   // ---------- Queue ----------
+  function isValidTicket(t) {
+    return t && typeof t === 'object'
+      && t.driver && t.driver.trim()
+      && t.truck && t.truck.trim()
+      && t.landfill && t.landfill.trim()
+      && typeof t.weight_tons === 'number'
+      && !isNaN(t.weight_tons)
+      && t.weight_tons >= MIN_WEIGHT
+      && t.weight_tons <= MAX_WEIGHT;
+  }
+
   function getQueue() {
     if (!storage) return [];
-    try { return JSON.parse(storage.getItem('pw_queue') || '[]'); }
+    try {
+      const raw = JSON.parse(storage.getItem('pw_queue') || '[]');
+      // Auto-purge anything invalid (defensive: stops blank rows from ever flushing)
+      const cleaned = raw.filter(isValidTicket);
+      if (cleaned.length !== raw.length) {
+        storage.setItem('pw_queue', JSON.stringify(cleaned));
+      }
+      return cleaned;
+    }
     catch { return []; }
   }
   function setQueue(q) {
@@ -607,13 +645,7 @@
     t._timer = setTimeout(() => t.classList.remove('show'), 3000);
   }
 
-  // ---------- Anti-spam guards ----------
-  const MIN_SECONDS_BETWEEN = 10;     // can't submit faster than this
-  const MAX_PER_HOUR = 30;            // hard cap per device per hour
-  const MIN_WEIGHT = 0.1;             // tons
-  const MAX_WEIGHT = 50;              // tons (sanity ceiling)
-  const DUPLICATE_WINDOW_SEC = 120;   // same driver+truck+weight within 2 min = duplicate
-
+  // ---------- Anti-spam tracking ----------
   function getSubmitLog() {
     if (!storage) return [];
     try { return JSON.parse(storage.getItem('pw_submit_log') || '[]'); }
