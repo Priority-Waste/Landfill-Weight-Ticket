@@ -1,0 +1,25 @@
+{
+  "name": "Priority Waste — Landfill Ticket",
+  "short_name": "Landfill Ticket",
+  "description": "Landfill weight ticket entry for Priority Waste drivers",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#111111",
+  "theme_color": "#FFD200",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
