@@ -353,8 +353,8 @@
     <div class="field">
       <label for="weight">Weight <span class="req">*</span></label>
       <div class="weight-wrap">
-        <input type="number" id="weight" name="weight" required inputmode="decimal" step="0.01" min="0" placeholder="0.00" />
-        <span class="weight-unit">TONS</span>
+        <input type="number" id="weight" name="weight" required inputmode="numeric" step="1" min="0" placeholder="0" />
+        <span class="weight-unit">LBS</span>
       </div>
     </div>
 
@@ -443,8 +443,8 @@
   // ---------- Constants (defined first so they're available everywhere) ----------
   const MIN_SECONDS_BETWEEN = 10;     // can't submit faster than this
   const MAX_PER_HOUR = 30;            // hard cap per device per hour
-  const MIN_WEIGHT = 0.1;             // tons
-  const MAX_WEIGHT = 50;              // tons (sanity ceiling)
+  const MIN_WEIGHT = 100;             // lbs
+  const MAX_WEIGHT = 100000;          // lbs (sanity ceiling - typical truck max ~80k)
   const DUPLICATE_WINDOW_SEC = 120;   // same driver+truck+weight within 2 min = duplicate
 
   // ---------- Live clock ----------
@@ -567,10 +567,10 @@
       && t.driver && t.driver.trim()
       && t.truck && t.truck.trim()
       && t.landfill && t.landfill.trim()
-      && typeof t.weight_tons === 'number'
-      && !isNaN(t.weight_tons)
-      && t.weight_tons >= MIN_WEIGHT
-      && t.weight_tons <= MAX_WEIGHT;
+      && typeof t.weight_lbs === 'number'
+      && !isNaN(t.weight_lbs)
+      && t.weight_lbs >= MIN_WEIGHT
+      && t.weight_lbs <= MAX_WEIGHT;
   }
 
   function getQueue() {
@@ -613,7 +613,7 @@
     const remaining = [];
     for (const ticket of q) {
       // Skip invalid/blank queued tickets — don't spam the list
-      if (!ticket || !ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_tons)) {
+      if (!ticket || !ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_lbs)) {
         continue; // drop it
       }
       try {
@@ -672,7 +672,7 @@
       driver: document.getElementById('driver').value.trim(),
       truck: document.getElementById('truck').value.trim(),
       landfill: document.getElementById('landfill').value,
-      weight_tons: parseFloat(document.getElementById('weight').value),
+      weight_lbs: parseFloat(document.getElementById('weight').value),
       submitted_at: new Date().toISOString(),
       submitted_at_local: new Date().toLocaleString('en-US', { timeZone: 'America/Detroit' }),
       tablet_id: (storage && storage.getItem('pw_tablet_id')) || 'unassigned',
@@ -680,12 +680,12 @@
     };
 
     // ---- Validation guards ----
-    if (!ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_tons)) {
+    if (!ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_lbs)) {
       showToast('Please fill in all required fields', true);
       return;
     }
-    if (ticket.weight_tons < MIN_WEIGHT || ticket.weight_tons > MAX_WEIGHT) {
-      showToast(`Weight must be between ${MIN_WEIGHT} and ${MAX_WEIGHT} tons`, true);
+    if (ticket.weight_lbs < MIN_WEIGHT || ticket.weight_lbs > MAX_WEIGHT) {
+      showToast(`Weight must be between ${MIN_WEIGHT.toLocaleString()} and ${MAX_WEIGHT.toLocaleString()} lbs`, true);
       return;
     }
 
@@ -708,7 +708,7 @@
     }
 
     // Duplicate detection
-    const dupKey = `${ticket.driver}|${ticket.truck}|${ticket.weight_tons}`;
+    const dupKey = `${ticket.driver}|${ticket.truck}|${ticket.weight_lbs}`;
     const recentDup = log.find(e =>
       e.key === dupKey && (now - e.t) / 1000 < DUPLICATE_WINDOW_SEC
     );
@@ -782,7 +782,7 @@
       <div class="row-item"><span class="label">Driver</span><span class="value">${escapeHtml(ticket.driver)}</span></div>
       <div class="row-item"><span class="label">Truck #</span><span class="value">${escapeHtml(ticket.truck)}</span></div>
       <div class="row-item"><span class="label">Landfill</span><span class="value">${escapeHtml(ticket.landfill)}</span></div>
-      <div class="row-item"><span class="label">Weight</span><span class="value weight-big">${ticket.weight_tons} tons</span></div>
+      <div class="row-item"><span class="label">Weight</span><span class="value weight-big">${ticket.weight_lbs.toLocaleString()} lbs</span></div>
       <div class="row-item"><span class="label">Time</span><span class="value">${escapeHtml(ticket.submitted_at_local)}</span></div>
     `;
 
