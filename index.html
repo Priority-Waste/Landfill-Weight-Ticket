@@ -48,6 +48,9 @@
     height: 48px;
     width: auto;
     display: block;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-drag: none;
   }
   .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
   .brand-text .sub { font-weight: 700; font-size: 12px; color: var(--pw-yellow); text-transform: uppercase; letter-spacing: 1px; }
@@ -309,7 +312,7 @@
 
 <header>
   <div class="brand">
-    <img src="priority-logo.png" alt="Priority Waste" class="brand-logo" />
+    <img src="logo.png" alt="Priority Waste" class="brand-logo" id="logoImg" />
     <div class="brand-text">
       <span class="sub">Landfill Ticket Entry</span>
     </div>
@@ -364,14 +367,10 @@
     </div>
 
     <div class="queue-info" id="queueInfo" style="display:none;">
-      <span>Pending submissions: <strong id="queueCount">0</strong></span>
-      <button type="button" id="retryBtn">Retry Now</button>
+      <span>Saved tickets pending: <strong id="queueCount">0</strong></span>
+      <span style="font-size: 12px;">Will send when online</span>
     </div>
 
-    <details>
-      <summary>⚙ Webhook Settings (one-time setup)</summary>
-      <input type="url" id="webhookUrl" placeholder="https://hooks.zapier.com/... or Power Automate URL" />
-    </details>
   </form>
 </main>
 
@@ -381,6 +380,46 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-backdrop" id="adminModal">
+  <div class="modal" style="max-width: 500px;">
+    <h2 style="color: var(--pw-black);">⚙ Admin Setup</h2>
+    <div class="modal-status">Tablet configuration — drivers should not access this screen</div>
+
+    <div style="text-align: left; margin: 20px 0;">
+      <label style="display:block; margin-bottom: 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pw-charcoal);">
+        Admin PIN
+      </label>
+      <input type="password" id="adminPin" inputmode="numeric" maxlength="6" placeholder="Enter PIN to unlock"
+        style="width:100%; font-size:18px; padding:14px; border:2px solid var(--pw-border); border-radius:10px; font-weight:700; letter-spacing: 4px; text-align:center;" />
+      <div id="pinError" style="color: var(--pw-error); font-size: 13px; font-weight: 700; margin-top: 8px; display: none;">Incorrect PIN</div>
+    </div>
+
+    <div id="adminFields" style="display:none; text-align: left;">
+      <label style="display:block; margin-bottom: 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pw-charcoal);">
+        Webhook URL
+      </label>
+      <input type="url" id="webhookUrl" placeholder="https://prod-XX.westus.logic.azure.com/..."
+        style="width:100%; font-size:14px; padding:12px; border:2px solid var(--pw-border); border-radius:10px; font-family: monospace;" />
+
+      <label style="display:block; margin: 16px 0 8px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--pw-charcoal);">
+        Tablet ID (optional)
+      </label>
+      <input type="text" id="tabletId" placeholder="e.g. Truck-142 or Tablet-A07"
+        style="width:100%; font-size:14px; padding:12px; border:2px solid var(--pw-border); border-radius:10px;" />
+
+      <div style="margin-top: 16px; padding: 12px; background: var(--pw-light); border-radius: 8px; font-size: 12px; color: var(--pw-gray); line-height: 1.5;">
+        <strong style="color: var(--pw-black);">Pending queue:</strong> <span id="adminQueueCount">0</span> tickets<br>
+        <strong style="color: var(--pw-black);">Submissions today:</strong> <span id="adminTodayCount">0</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button type="button" id="adminCancel" style="flex:1; background: white; color: var(--pw-charcoal); border: 2px solid var(--pw-border); box-shadow: none;">Cancel</button>
+      <button type="button" id="adminSave" style="flex:1;">Save</button>
+    </div>
+  </div>
+</div>
 
 <div class="modal-backdrop" id="successModal">
   <div class="modal">
@@ -435,14 +474,73 @@
     console.warn('localStorage unavailable; offline queue disabled.');
   }
 
-  const webhookInput = document.getElementById('webhookUrl');
-  if (storage) {
-    webhookInput.value = storage.getItem('pw_webhook_url') || '';
-    webhookInput.addEventListener('change', () => {
-      storage.setItem('pw_webhook_url', webhookInput.value.trim());
-      showToast('Webhook URL saved', false);
-    });
+  // ---------- Admin Panel (hidden) ----------
+  // Drivers should NEVER see this. Unlocked by tapping the logo 5 times within 3 seconds,
+  // then entering the admin PIN. Default PIN is 8265 (= "WAST" on a phone keypad — change below).
+  const ADMIN_PIN = '8265';   // <-- CHANGE THIS before deploying to tablets
+
+  let logoTaps = [];
+  document.getElementById('logoImg').addEventListener('click', () => {
+    const now = Date.now();
+    logoTaps = logoTaps.filter(t => now - t < 3000);
+    logoTaps.push(now);
+    if (logoTaps.length >= 5) {
+      logoTaps = [];
+      openAdminModal();
+    }
+  });
+
+  function openAdminModal() {
+    const modal = document.getElementById('adminModal');
+    document.getElementById('adminPin').value = '';
+    document.getElementById('pinError').style.display = 'none';
+    document.getElementById('adminFields').style.display = 'none';
+    document.getElementById('webhookUrl').value = (storage && storage.getItem('pw_webhook_url')) || '';
+    document.getElementById('tabletId').value = (storage && storage.getItem('pw_tablet_id')) || '';
+    // Refresh stats
+    document.getElementById('adminQueueCount').textContent = getQueue().length;
+    const today = new Date().toDateString();
+    const todayCount = getSubmitLog().filter(e => new Date(e.t).toDateString() === today).length;
+    document.getElementById('adminTodayCount').textContent = todayCount;
+    modal.classList.add('show');
+    setTimeout(() => document.getElementById('adminPin').focus(), 100);
   }
+
+  document.getElementById('adminPin').addEventListener('input', (e) => {
+    const err = document.getElementById('pinError');
+    if (e.target.value === ADMIN_PIN) {
+      document.getElementById('adminFields').style.display = 'block';
+      err.style.display = 'none';
+    } else if (e.target.value.length >= ADMIN_PIN.length) {
+      err.style.display = 'block';
+      document.getElementById('adminFields').style.display = 'none';
+    } else {
+      err.style.display = 'none';
+      document.getElementById('adminFields').style.display = 'none';
+    }
+  });
+
+  document.getElementById('adminCancel').addEventListener('click', () => {
+    document.getElementById('adminModal').classList.remove('show');
+  });
+
+  document.getElementById('adminSave').addEventListener('click', () => {
+    if (document.getElementById('adminPin').value !== ADMIN_PIN) {
+      document.getElementById('pinError').style.display = 'block';
+      return;
+    }
+    if (!storage) {
+      alert('Local storage is unavailable on this device — settings cannot be saved.');
+      return;
+    }
+    const url = document.getElementById('webhookUrl').value.trim();
+    const tabletId = document.getElementById('tabletId').value.trim();
+    storage.setItem('pw_webhook_url', url);
+    storage.setItem('pw_tablet_id', tabletId);
+    document.getElementById('adminModal').classList.remove('show');
+    showToast('✓ Settings saved', false);
+    if (navigator.onLine) flushQueue();
+  });
 
   // ---------- Queue ----------
   function getQueue() {
@@ -468,13 +566,11 @@
   }
   renderQueue();
 
-  document.getElementById('retryBtn').addEventListener('click', flushQueue);
-
   async function flushQueue() {
     const q = getQueue();
     if (q.length === 0) return;
     const url = (storage && storage.getItem('pw_webhook_url')) || '';
-    if (!url) { showToast('Set webhook URL first', true); return; }
+    if (!url) return;
 
     const remaining = [];
     for (const ticket of q) {
@@ -543,6 +639,7 @@
       weight_tons: parseFloat(document.getElementById('weight').value),
       submitted_at: new Date().toISOString(),
       submitted_at_local: new Date().toLocaleString('en-US', { timeZone: 'America/Detroit' }),
+      tablet_id: (storage && storage.getItem('pw_tablet_id')) || 'unassigned',
       source: 'Tablet — Landfill Form'
     };
 
