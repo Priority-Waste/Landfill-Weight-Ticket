@@ -574,14 +574,17 @@
 
     const remaining = [];
     for (const ticket of q) {
+      // Skip invalid/blank queued tickets — don't spam the list
+      if (!ticket || !ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_tons)) {
+        continue; // drop it
+      }
       try {
-        await fetch(url, {
+        const res = await fetch(url, {
           method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(ticket)
         });
-        // no-cors returns opaque response; assume success unless fetch throws
+        if (!res.ok) remaining.push(ticket);
       } catch {
         remaining.push(ticket);
       }
@@ -645,6 +648,10 @@
     };
 
     // ---- Validation guards ----
+    if (!ticket.driver || !ticket.truck || !ticket.landfill || isNaN(ticket.weight_tons)) {
+      showToast('Please fill in all required fields', true);
+      return;
+    }
     if (ticket.weight_tons < MIN_WEIGHT || ticket.weight_tons > MAX_WEIGHT) {
       showToast(`Weight must be between ${MIN_WEIGHT} and ${MAX_WEIGHT} tons`, true);
       return;
@@ -688,16 +695,15 @@
     let success = false;
     if (url) {
       try {
-        // Use no-cors so Zapier/webhook services don't get blocked by browser CORS policy.
-        // Tradeoff: response is opaque (status always 0), so we assume success if no throw.
-        // Real network failures still throw and get caught below.
-        await fetch(url, {
+        // Use text/plain content-type to avoid CORS preflight (OPTIONS request).
+        // Zapier accepts JSON in the body regardless of content-type header.
+        // This way we get a real readable response and know if it actually worked.
+        const res = await fetch(url, {
           method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(ticket)
         });
-        success = true;
+        success = res.ok;
       } catch {
         success = false;
       }
@@ -768,8 +774,8 @@
     if (confirm('Clear all fields?')) form.reset();
   });
 
-  // Auto-flush queue every 60s when online
-  setInterval(() => { if (navigator.onLine) flushQueue(); }, 60000);
+  // Auto-flush queue every 5 minutes when online (slow enough to not spam if something is wrong)
+  setInterval(() => { if (navigator.onLine) flushQueue(); }, 5 * 60 * 1000);
 </script>
 
 </body>
