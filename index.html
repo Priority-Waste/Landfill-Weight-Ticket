@@ -6,6 +6,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Landfill Ticket" />
+<meta name="theme-color" content="#111111" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="logo.png" />
+<link rel="icon" type="image/png" href="logo.png" />
 <title>Priority Waste — Landfill Ticket</title>
 <style>
   :root {
@@ -440,6 +445,22 @@
 </div>
 
 <script>
+  // ---------- Fullscreen on first interaction (browser fallback) ----------
+  // If launched as PWA from home screen, manifest handles this.
+  // If opened in a regular browser, we silently request fullscreen on the first tap.
+  let fsRequested = false;
+  function tryFullscreen() {
+    if (fsRequested) return;
+    fsRequested = true;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) {
+      try { req.call(el).catch(() => {}); } catch {}
+    }
+  }
+  document.addEventListener('click', tryFullscreen, { once: true });
+  document.addEventListener('touchstart', tryFullscreen, { once: true });
+
   // ---------- Constants (defined first so they're available everywhere) ----------
   const MIN_SECONDS_BETWEEN = 10;     // can't submit faster than this
   const MAX_PER_HOUR = 30;            // hard cap per device per hour
